@@ -1,0 +1,22 @@
+{
+    "sqltools.connections": [
+        {
+            "authenticator": "SNOWFLAKE",
+            "ocspOptions": {
+                "ocspFailOpen": true
+            },
+            "snowflakeOptions": {
+                "clientSessionKeepAlive": true,
+                "clientSessionKeepAliveHeartbeatFrequency": 3600
+            },
+            "previewLimit": 50,
+            "driver": "Snowflake",
+            "name": "MY Connection",
+            "account": "ij59213.southeast-asia.azure",
+            "username": "Guru",
+            "password": "Guruprasad@3519",
+            "database": "KOMHAR",
+            "warehouse": "COMPUTE_WH"
+        }
+    ]
+}
