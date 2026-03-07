@@ -1,1 +1,265 @@
+create or replace database Analytics;
+use database Analytics;
+use schema public;
 
+create or replace table sales_data
+(
+sale_id int,
+customer_id int,
+product string,
+amount int,
+created_ts timestamp default current_timestamp 
+);
+drop table sales_data;
+
+INSERT INTO SALES_DATA (sale_id,
+customer_id,
+product,
+amount) VALUES
+(1,101,'Laptop',50000),
+(2,102,'Mobile',20000),
+(3,101,'Laptop',50000),
+(4,103,'Tablet',15000),
+(5,102,'Mobile',20000);
+select * from sales_data;
+truncate table sales_data;
+
+--How to find out the duplicates , what are the ways
+
+--/using group by
+
+select customer_id,product,amount,count(*) as duplicate_count
+from sales_data
+group by customer_id,product,amount
+having count(*) >1;
+
+--group by work as grooup the similar records
+--count(*) counts the rows
+--having count(*)>1 returns the duplicates
+
+-- /row_number using sub query
+select * from
+(
+select *,
+row_number() over
+(
+partition by customer_id,product,amount order by created_ts
+)as rn
+from sales_data
+)
+where rn>1;
+
+-- inside sub query finds the duplicates
+--row number -assign a unique sequential number to each row.
+
+--partition - divides table into groups based on the columns each unique column combination of columns and creates a separate group(partition)
+-- then row number retarns from 1 inside evy partition
+--inside every partition ,rows are sorted based on the timestamp.
+-- we used this to remove duplicates "where rn=1"
+--find duplicates "where rn>1"
+--get latest record "order by created_ts desc"
+
+
+--/count() over window function
+select * from
+(
+select*,
+count(*) over
+(
+partition by customer_id,product,amount
+) as duplicate_count
+from sales_data
+)
+where duplicate_count > 1;
+
+select * from sales_data;
+-- only inner query works - instead of grouping this counts the no.of rows inside each partition.
+
+--where condition works as give only duplicate records.
+
+--/using self join
+select a.*
+from sales_data a
+join sales_data b
+on a.customer_id = b.customer_id
+and a.amount = b.amount
+and a.product = b.product
+and a.sale_id <> b.sale_id;
+
+--a and b are copy of the table
+-- then it will check matching conditions if these are same then rows may be duplicate
+--" a.sale_id <> b.sale_id" - this compare different rows we use this to avoid matching same row.
+--" select a.* " -it returns the rows from alias a  that have duplicates.
+
+--/DISTINCT Comparison
+
+select count(*) as total_rows,
+count(distinct customer_id,product,amount)as unique_rows
+from sales_data;
+
+-- it only tells how many duplicate exist, not which records are duplicates
+
+--/QUALIFY 
+
+select * from sales_data
+qualify row_number() over
+(
+partition by customer_id order by created_ts)>1;
+
+-- qualify is used to filter results of window functions without using subqueries.
+-- this is powerful  because snowflake allows filtering window functions directly , no need for subquery.
+--it is a snowflake special feature
+--if we use after qualify query we give " =1 " it will print the latest record per order.
+--Normally sql executes window function after where ,we can't filter directly using where 
+--that why we use qualify
+
+
+
+
+--delete duplicates
+
+--/row_number()
+
+
+delete from sales_data
+using
+(
+select *,
+row_number() over (
+partition by customer_id,product,amount order by created_ts desc
+) as rn
+from sales_data
+)t
+where sales_data.customer_id = t.customer_id
+and sales_data.product=t.product
+and sales_data.amount=t.amount
+and sales_data.created_ts=t.created_ts
+and t.rn>1;
+select * from sales_data;
+-- inside sub query works like it will assign row number for duplicate rows
+-- this query works to delete duplicate records 
+-- there is a problem like it will delete all rows for that customer
+
+
+--/ using qualify
+
+delete from sales_data
+using
+(
+select * from sales_data
+qualify row_number() over
+(
+partition by customer_id,product,amount
+order by created_ts desc
+)>1
+)t 
+where sales_data.customer_id = t.customer_id;
+
+-- row number() -> identify duplicates
+--qualify filters rows after window functions are calculated.select duplicates
+--delete using -> remove duplicates
+
+
+--/recreate table 
+
+create or replace table clean_sales as 
+select * from(select *,
+row_number() over (
+partition by customer_id,amount, product order by created_ts
+)as rn
+from sales_data
+)
+where rn=1;
+select * from clean_sales;
+
+
+-- /using distinct
+create or replace table clean_sales as select distinct * from sales_data;
+
+
+
+
+-- sample procedure
+create or replace table college
+(
+clg_id int,
+clg_name string,
+city string
+);
+
+insert into college values
+(1,'svec','tirupati'),
+(2,'svce','nellore'),
+(3,'vitap','vellore');
+
+create or replace table student
+(
+std_id int,
+std_name string,
+marks int,
+clg_id int,
+created_ts timestamp default current_timestamp
+);
+
+insert into student (std_id,std_name,marks,clg_id) values
+(101,'guru',85,1),
+(102,'bhargavi',90,2),
+(103,'vamsi',45,1),
+(104,'sai',70,3),
+(105,'vishnu',35,2);
+
+create or replace table failed_students
+(
+std_id int,
+std_name string,
+marks int,
+clg_id int,
+status string
+);
+
+--store procedure
+
+create or replace procedure usp_insert_failed_students()
+returns string
+language sql
+as
+$$
+begin
+
+insert into failed_students
+(std_id,std_name,marks,clg_id,status)
+
+select
+std_id,
+std_name,
+marks,
+clg_id,
+'failed'
+from student
+where marks<40;
+return 'failed students inserted';
+end;
+$$;
+
+CALL usp_insert_failed_students();
+
+select * from failed_students;
+
+-- begin start the block of execution
+-- all sql statement must be inside begin ... end.
+
+-- read data from student table and based on thre condition it will store the failed students data in failed_students table
+
+-- flow
+
+CALL PROCEDURE
+      ↓
+Procedure Starts
+      ↓
+Read STUDENT table
+      ↓
+Filter marks < 40
+      ↓
+Insert into FAILED_STUDENTS
+      ↓
+Return message
