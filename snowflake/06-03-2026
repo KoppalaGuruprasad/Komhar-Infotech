@@ -24,7 +24,7 @@ amount) VALUES
 select * from sales_data;
 truncate table sales_data;
 
---How to find out the duplicates , what are the ways
+--finding duplicates
 
 --/using group by
 
@@ -37,7 +37,7 @@ having count(*) >1;
 --count(*) counts the rows
 --having count(*)>1 returns the duplicates
 
--- /row_number using sub query
+-- row_number using sub query
 select * from
 (
 select *,
@@ -60,7 +60,7 @@ where rn>1;
 --get latest record "order by created_ts desc"
 
 
---/count() over window function
+--count() over window function
 select * from
 (
 select*,
@@ -91,7 +91,7 @@ and a.sale_id <> b.sale_id;
 --" a.sale_id <> b.sale_id" - this compare different rows we use this to avoid matching same row.
 --" select a.* " -it returns the rows from alias a  that have duplicates.
 
---/DISTINCT Comparison
+--DISTINCT Comparison
 
 select count(*) as total_rows,
 count(distinct customer_id,product,amount)as unique_rows
@@ -99,7 +99,7 @@ from sales_data;
 
 -- it only tells how many duplicate exist, not which records are duplicates
 
---/QUALIFY 
+--QUALIFY 
 
 select * from sales_data
 qualify row_number() over
@@ -118,7 +118,7 @@ partition by customer_id order by created_ts)>1;
 
 --delete duplicates
 
---/row_number()
+--row_number()
 
 
 delete from sales_data
@@ -141,7 +141,7 @@ select * from sales_data;
 -- there is a problem like it will delete all rows for that customer
 
 
---/ using qualify
+-- using qualify
 
 delete from sales_data
 using
@@ -160,7 +160,7 @@ where sales_data.customer_id = t.customer_id;
 --delete using -> remove duplicates
 
 
---/recreate table 
+--recreate table 
 
 create or replace table clean_sales as 
 select * from(select *,
@@ -173,93 +173,175 @@ where rn=1;
 select * from clean_sales;
 
 
--- /using distinct
+-- using distinct
 create or replace table clean_sales as select distinct * from sales_data;
 
 
 
 
 -- sample procedure
-create or replace table college
-(
-clg_id int,
-clg_name string,
-city string
-);
 
-insert into college values
-(1,'svec','tirupati'),
-(2,'svce','nellore'),
-(3,'vitap','vellore');
-
-create or replace table student
+create or replace table stg_student
 (
 std_id int,
 std_name string,
 marks int,
 clg_id int,
+admission_date date,
+status string,
 created_ts timestamp default current_timestamp
 );
 
-insert into student (std_id,std_name,marks,clg_id) values
-(101,'guru',85,1),
-(102,'bhargavi',90,2),
-(103,'vamsi',45,1),
-(104,'sai',70,3),
-(105,'vishnu',35,2);
+insert into stg_student (std_id,std_name,marks,admission_date,status)
+values
+(1,'Ravi',85,'2024-06-10','active'),
+(2,'Sita',-10,'2024-05-15','active'),   
+(3,'Arjun',120,'2024-04-20','active'), 
+(4,'Meena',70,'2030-01-01','active'),  
+(5,'Kiran',65,'2024-03-12',null),      
+(6,null,75,'2024-02-01','active');
 
-create or replace table failed_students
+select * from stg_student;
+
+create or replace table fact_student
 (
 std_id int,
 std_name string,
 marks int,
 clg_id int,
-status string
+status string,
+admission_date date
 );
 
---store procedure
+create or replace table student_error_log
+(
+std_id int,
+error_reason string
+);
 
-create or replace procedure usp_insert_failed_students()
+--insert invalid data
+
+insert into student_error_log(std_id,error_reason)
+select
+std_id,
+case
+when marks <= 0 then 'invalid marks'
+when marks > 100 then 'marks exceed limit'
+when admission_date > current_date then 'future date'
+when status is null then 'status missing'
+when std_name is null then 'name missing'
+end
+from stg_student
+where 
+marks <=0 or
+marks >100 or
+admission_date > current_date or
+status is null or 
+std_name is null;
+
+select * from student_error_log;
+
+insert into fact_student
+(std_id,std_name,marks,clg_id,status,admission_date)
+select 
+std_id,
+std_name,
+marks,
+clg_id,
+status,
+admission_date from stg_student
+where 
+marks > 0 and
+marks <=100 and
+admission_date <=current_date and 
+status is not null and 
+std_name is not null;
+
+select * from fact_student;
+
+--store procedure
+create or replace procedure simple_student_process()
 returns string
 language sql
 as
 $$
 begin
 
-insert into failed_students
-(std_id,std_name,marks,clg_id,status)
+-- Insert invalid students
 
+insert into student_error_log(std_id,error_reason)
 select
+std_id,
+case
+when marks <= 0 then 'invalid marks'
+when marks > 100 then 'marks exceed limit'
+when admission_date > current_date then 'future date'
+when status is null then 'status missing'
+when std_name is null then 'name missing'
+end
+from stg_student
+where 
+marks <=0 or
+marks >100 or
+admission_date > current_date or
+status is null or 
+std_name is null;
+
+-- Insert valid students
+insert into fact_student
+(std_id,std_name,marks,clg_id,status,admission_date)
+select 
 std_id,
 std_name,
 marks,
 clg_id,
-'failed'
-from student
-where marks<40;
-return 'failed students inserted';
-end;
+status,
+admission_date from stg_student
+where 
+marks > 0 and
+marks <=100 and
+admission_date <=current_date and 
+status is not null and 
+std_name is not null;
+RETURN 'STUDENT DATA PROCESSED SUCCESSFULLY';
+exception
+when other then
+rollback;
+return 'process failed';
+END;
 $$;
 
-CALL usp_insert_failed_students();
+call simple_student_process();
 
-select * from failed_students;
 
--- begin start the block of execution
--- all sql statement must be inside begin ... end.
 
--- read data from student table and based on thre condition it will store the failed students data in failed_students table
+--load data in snowflake into s3 bucket
 
--- flow
+create or replace database analytics;
+use database analytics;
 
-CALL PROCEDURE
-      ↓
-Procedure Starts
-      ↓
-Read STUDENT table
-      ↓
-Filter marks < 40
-      ↓
-Insert into FAILED_STUDENTS
-      ↓
-Return message
+create or replace schema public;
+use schema public;
+
+create or replace table guru
+(order_id int,
+customer_id int,
+amount int,
+order_date date
+);
+
+create or replace file format csv_format
+type = csv
+field_delimiter =","
+skip_header = 1; 
+
+create or replace stage data_guru
+file_format = csv_format;
+
+list @data_guru;
+
+copy into guru
+from @data_guru/sample_data.csv
+file_format = csv_format;
+
+select * from guru;
