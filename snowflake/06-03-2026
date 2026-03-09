@@ -12,14 +12,15 @@ created_ts timestamp default current_timestamp
 );
 drop table sales_data;
 
-INSERT INTO SALES_DATA (sale_id,
-customer_id,
-product,
-amount) VALUES
+insert into sales_data
+(sale_id,customer_id,product,amount)
+VALUES
 (1,101,'Laptop',50000),
 (2,102,'Mobile',20000),
 (3,101,'Laptop',50000),
 (4,103,'Tablet',15000),
+(5,102,'Mobile',20000),
+(3,101,'Laptop',50000),
 (5,102,'Mobile',20000);
 select * from sales_data;
 truncate table sales_data;
@@ -91,6 +92,7 @@ and a.sale_id <> b.sale_id;
 --" a.sale_id <> b.sale_id" - this compare different rows we use this to avoid matching same row.
 --" select a.* " -it returns the rows from alias a  that have duplicates.
 
+
 --DISTINCT Comparison
 
 select count(*) as total_rows,
@@ -119,7 +121,6 @@ partition by customer_id order by created_ts)>1;
 --delete duplicates
 
 --row_number()
-
 
 delete from sales_data
 using
@@ -176,7 +177,7 @@ select * from clean_sales;
 -- using distinct
 create or replace table clean_sales as select distinct * from sales_data;
 
-
+select * from clean_sales;
 
 
 -- sample procedure
@@ -219,6 +220,8 @@ std_id int,
 error_reason string
 );
 
+--Instead of rejecting bad data completely, we log invalid records with a reason.
+
 --insert invalid data
 
 insert into student_error_log(std_id,error_reason)
@@ -239,6 +242,11 @@ admission_date > current_date or
 status is null or 
 std_name is null;
 
+--Identifies bad records
+--Assigns a specific error message
+--Inserts them into error_log table
+
+
 select * from student_error_log;
 
 insert into fact_student
@@ -257,7 +265,9 @@ admission_date <=current_date and
 status is not null and 
 std_name is not null;
 
+--Only records passing all validation rules are inserted into fact_student.
 select * from fact_student;
+
 
 --store procedure
 create or replace procedure simple_student_process()
@@ -314,6 +324,18 @@ $$;
 call simple_student_process();
 
 
+Raw Student Data
+      ↓
+stg_student (Staging)
+      ↓
+Validation Rules
+      ↓
+Invalid Data → student_error_log
+      ↓
+Valid Data → fact_student
+
+
+
 
 --load data in snowflake into s3 bucket
 
@@ -334,14 +356,25 @@ create or replace file format csv_format
 type = csv
 field_delimiter =","
 skip_header = 1; 
+--Defines the CSV file structure.
 
 create or replace stage data_guru
 file_format = csv_format;
+--A stage is a storage location where Snowflake reads files.
 
 list @data_guru;
 
 copy into guru
 from @data_guru/sample_data.csv
 file_format = csv_format;
+--This loads the CSV file into the table.
 
 select * from guru;
+
+CSV File
+   ↓
+Snowflake Stage
+   ↓
+COPY INTO
+   ↓
+Snowflake Table (guru)
