@@ -1,0 +1,101 @@
+---- create one sample store procedure for scd type-1 in snowflake  --------
+
+use database komhar;
+use schema guru;
+
+create or replace table employee
+(
+id int,
+name string,
+city string,
+salary int,
+created_ts timestamp default current_timestamp(),
+updated_ts timestamp default null
+);
+
+insert into employee(id, name, city, salary) 
+values
+(1,'guru','hyd',15000),
+(2,'bhanu','bng',30000),
+(3,'avinash','chennai',28000),
+(4,'neha','bng',35000),
+(5,'bhargavi','hyd',20000),
+(6,'vamsi','bng',25000),
+(7,'tharnika','hyd',20000),
+(8,'Haritha','chennai',25000),
+(9,'bhagya','bng',27000);
+
+
+
+---create store procedure scd type-1 parameters
+
+--- store procedure - instead of writing sql again and again we store it once and reuse
+                - we can insert,update, validate 
+                - we use store procedure for code reusability,automation and performance improvement.
+
+scd type -1 : it can overwrite the existing data
+              - no history maintained
+              - we can use merge statement to implement scd type-1
+   
+              
+
+create or replace procedure scd1_employees
+(
+e_id int,
+e_name string,
+e_city string,
+e_salary int
+)
+returns string
+language sql
+as
+$$
+begin
+
+merge into employee trg
+using 
+(
+select 
+:e_id as id,
+:e_name as name,
+:e_city as city,
+:e_salary as salary) src
+on trg.id = src.id
+
+when matched then 
+update set 
+name = src.name,
+city = src.city,
+salary = src.salary,
+updated_ts = current_timestamp()
+
+when not matched then
+insert (id, name, city, salary)
+values (src.id, src.name, src.city, src.salary);
+
+return 'successfully processed';
+exception
+when other then
+return 'process failed';
+end;
+$$;
+
+--- run procedure - we can use " call procedure_name(arguments); "
+
+call scd1_employees(9,'bhagya','bng',30000);
+
+select * from employee;
+
+
+--- drop procedure in scd type-1 : " drop procedure procedure_name(parameter_types); "
+
+drop procedure scd1_employees(int,string,string,int);
+
+
+
+--- $$  - it is delimeter
+        - used to mark the start and end of the store procedure
+        - we can use " '' " or " $$ "  or  "$ name $ " as delimeter
+
+---:e_id - " : " means procedure parameter
+            - if we remove that it treat lika a column name.

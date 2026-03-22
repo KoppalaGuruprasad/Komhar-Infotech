@@ -1,4 +1,4 @@
-
+----Task 3 ----
 
 
 create or replace database komhar;
@@ -78,7 +78,7 @@ select* from stg_orders;
 
 select current_timestamp::date;
 
--- top 3 customers based on total order amount.
+--------- top 3 customers based on total order amount.
 
 select
 d.city,
@@ -93,7 +93,7 @@ qualify row_number() over
 partition by d.city order by total_amount desc
 )<= 3;
 
---latest order placed by each customer.
+----------------latest order placed by each customer.
 
 select 
 customer_id,
@@ -107,7 +107,7 @@ partition by customer_id order by order_date desc
 order by customer_id;
 select* from fact_orders;
 
---customers who never placed orders
+-----------------customers who never placed orders
 
 select 
 d.customer_id,
@@ -117,7 +117,7 @@ left join fact_orders f
 on d.customer_id = f.customer_id
 where f.order_id is null;
 
---monthly revenue
+------------------monthly revenue
 
 select 
 date_trunc('month',order_date) as order_month,
@@ -126,7 +126,6 @@ from fact_orders
 group by order_month;
 
 select * from fact_orders;
-
 --running total order amount per customer order by date
 
 select 
