@@ -1,4 +1,4 @@
 - completed the dbt setup and configuration 
 - created staging model
 - then successfully run dbt and validate models
-- understand the transformations and data flow from staging to fact layer
+-understand the transformations and data flow from staging to fact layer

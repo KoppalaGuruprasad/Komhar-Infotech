@@ -1,4 +1,4 @@
---find the latest order per customer
+ --find the latest order per customer
 --/ this query finds the latest order per customer
 SELECT *
 FROM
