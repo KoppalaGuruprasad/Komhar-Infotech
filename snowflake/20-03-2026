@@ -1,4 +1,4 @@
----- create one sample store procedure for scd type-1 in snowflake  --------
+----  create one sample store procedure for scd type-1 in snowflake  --------
   
 use database komhar;
 use schema guru;
