@@ -1,0 +1,117 @@
+---- store procedures and function testing -----
+
+--- I went through Snowflake functions and stored procedures and gained a clear understanding of their differences and use cases.
+--- I also completed the setup by installing all the required tools for testing (like cisco secure client and Oracle sql developer) 
+--- Then i successfully connected to the VPN and verified that everything is working or not.
+
+
+functions -
+            it is a reusable block of code, it take input parameters and perform logic and return single value
+- functions are used for reusability ,easy maintenance, 
+    function = input -> logic process -> output(single value)
+
+types : 
+        1. Inbuilt functions 
+            string, numneric, date, aggregate, conversion functions
+        2.user defined functions
+            1.scalar function - returns one value per row
+            2.Table function - returns a table (multiple rows/ columns)
+
+Rules :
+        1.must return only one value
+        2. can't perform 
+            insert
+            update
+            delete
+            merge
+
+
+---> difference between snowflake function and oracle function
+
+- both are reuasble objects 
+- but implementation ,and usage is difference
+- oracle works pl/sql only
+- snowflake works modern languages
+
+snowflake function-
+            create or replace function get_bonus(salary number)
+            returns number
+             as
+             $$
+                salary * 0.10
+            $$;
+ 
+--- $$ - it is delimeter
+- used to mark the start and end of the function in body it tells where logic begin and end.
+     
+
+calling function :
+                    select get_bonus(50000);
+
+Example Oracle -
+            create or replace function get_bonus(salary number)
+            returns number
+            is
+            begin
+                return salary * 0.10;
+            end;
+
+--> procedural (begin , end , return)
+
+calling function :
+                    select get_bonus(50000) from dual;
+
+ --> dual is a dummy table in oracle , used only for syntax purpose.
+
+
+
+
+
+
+ ----------------- Procedures-------------------
+
+ store procedure -  it is a reusable block of code, it take input and perform multiple operations then return a value
+
+ example procedure -
+
+                create or replace procedure insert_employee(id int, name string)
+                returns string
+                language sql
+                as
+                $$
+                begin
+                    insert into employee values (:id, :name);
+                    return 'Data Inserted';
+                end;
+                $$;
+
+
+call procedure -
+                    call insert_employee(1,'Guru');
+
+    
+    --> it take input and insert data into table then return msg.
+
+s
+why we use procedures  - 
+
+            1. Automate tasks
+            2. perform insert,update,delete,merge
+            3. reduce manual work
+            4. handle complex ETL logic
+          
+
+
+
+--------------- differences b/w procedure and funcion -----------------
+
+- function used for calculation/transformation(return one value)
+- function execute row level 
+- procedure used for perfoming tasks/process (do mimultiple operations)
+- procedure execute block level
+
+
+in real time 
+
+-> function used for data cleaning, calculations, Transformations
+-> procedure used for loading data , apply scd1 & 2 and merge operations
