@@ -1,5 +1,5 @@
  ---Task 3 ---
-
+  
 
 create or replace database komhar;
 use database komhar;
